@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+    {% block head %}
+    <title>{% block title %}{% endblock %}Weather?</title>
+    {% endblock %}
+</head>
+
+<div class="header">
+    {% if session.login %}
+    <span>{{ session.username }}</span>
+    |
+    <a href="{{url_for('logout')}}">退出</a>
+    {% else %}
+        <a href="{{ url_for('login') }}">登录</a>
+        |
+        <a href="{{ url_for('register') }}">注册</a>
+    {% endif %}
+</div>
+<body>
+    <style media="screen">
+    h1 {color: rgba(47, 107, 63, 0.78);
+        font-size: 65px;
+        text-align: center;}
+    a {
+        position: inherit;
+        text-decoration: none;
+        text-align: left;
+        color: #a9bfca;
+        font-size: larger;
+    }
+    .result {
+        color: rgba(162, 127, 71, 0.78);
+        font-size: 22px;
+        text-align: center;
+    }
+
+    .btn-query {
+        position: relative;
+        left: 420px;
+        right: 30px;
+        font-size: 40px;
+
+    }
+    .submit-city {
+        position:absolute;
+        left:100px;
+        top:150px;
+    }
+    footer {
+    clear:both;
+    text-align: center;
+    }
+    form {
+    width: 100%;
+    padding: 20px;
+    font-size: 16px;
+    text-align: center;
+    }
+    </style>
+<div>
+    {% block register %}
+    <h1>How's the weather?</h1>
+    <form align="center" action="/query" method="get">
+        <input type="text" name="city" placeholder="请在此输入你要查询的城市名，如：深圳">
+        <input type="submit" name="query" value="查询">
+        <input type="submit" name="history" value="历史">
+        <input type="submit" name="help" value="帮助">
+        <input type="submit" name="update" value="更新">
+    </form>
+    {% endblock %}
+</div id="main">
+    <div class='result'>
+    {% block content %}
+    <p>{{ city_query }}</p>
+    {% if weather_str %}
+        <p>{{ weather_str }}</p>
+    {% elif history %}
+        {% for his in history %}
+            <p>{{ his }}</p>
+        {% endfor %}
+    {% elif help %}
+        <p>help yourself</p>
+    {% elif update_data %}
+        <p>{{ update_data }}</p>
+    {% elif error%}
+        <p>{{ error }}</p>
+    {% endif %}
+    {% endblock %}
+    </div>
+<!-- <div>
+    <footer>
+    <a class="" href="/history/">history</a>
+    <a class="" href="/help/">help</a>
+    </footer>
+</div> -->
+</body>
+</html>
