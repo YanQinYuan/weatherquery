@@ -10,7 +10,7 @@
 # 用户手动更新数据库y
 # 数据库定时更新y
 
-import sqlite3 as ite
+import psycopg2 as psy
 def create_users():
 	conn = ite.connect('weather.db')
 	with conn:
@@ -18,27 +18,18 @@ def create_users():
 		cur.execute("create table users(username char(80), password char(120))")
 
 def create_table():
-	conn = ite.connect('weather.db')
+	conn = psy.connect('weather.db')
 	with conn:
 		cur = conn.cursor()
-		cur.execute("DROP TABLE if exists weather")
-		cur.execute("CREATE TABLE weather(day text,city text,weather text,temp text)")
-
+		cur.execute("DROP TABLE if exists 'weather'")
+		cur.execute("CREATE TABLE 'weather'(day varchar,city varchar(64),weather varchar(64),temp varchar(64))")
+	conn.commit()
 def insert_data(day,city,weather,temp):
 	conn = ite.connect('weather.db')
 	with conn:
 		cur = conn.cursor()
 		cur.execute("INSERT INTO weather VALUES(?,?,?,?)",(day,city,weather,temp))
 
-def get_city_weather(location):
-	conn = ite.connect('weather.db')
-	with conn:
-		cur = conn.cursor()
-		cur.execute('SELECT day,city,weather,temp from weather where city=:location',{"location": location})
-		data = cur.fetchone()
-	weather_str = f"""{data[0]},{data[1]}天气:{data[2]},气温:{data[3]}"""
-	print(weather_str)
-	return weather_str
 
 def get_history():
 	conn = ite.connect('weather.db')
@@ -48,15 +39,7 @@ def get_history():
 		history = cur.fetchall()
 	# print(history)
 	return history
-def update_weather(location, weather):
-	conn = ite.connect('weather.db')
-	with conn:
-		cur = conn.cursor()
-		cur.execute('UPDATE weather SET weather=? where city=?',(weather, location))
-		# conn.commit()
-		cur.execute('SELECT * from weather where city=:location',{"location": location})
-		update_data = cur.fetchall()
-	return update_data
+
 def isExisted(username, password):
 	conn = ite.connect('weather.db')
 	with conn:

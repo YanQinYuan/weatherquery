@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 from flask import Flask,url_for, render_template, request, redirect
 from weatherquery import get_weather
-from database import get_city_weather, insert_data, update_weather,get_history, isExisted, add_user,register_check, create_table
+# from database import get_city_weather, insert_data, update_weather,get_history, isExisted, add_user,register_check, create_table
 from wtforms import Form, TextField,PasswordField,validators
 import os
 import sqlite3
 from flask import session, g, abort, flash, escape
 import hashlib
 import datetime
-from wechatpy.crypto import WeChatCrypto
-from wechatpy import parse_message, create_reply
-from wechatpy.utils import check_signature
-from wechatpy.exceptions import InvalidSignatureException
-from wechatpy.exceptions import InvalidAppIdException
+# from wechatpy.crypto import WeChatCrypto
+# from wechatpy import parse_message, create_reply
+# from wechatpy.utils import check_signature
+# from wechatpy.exceptions import InvalidSignatureException
+# from wechatpy.exceptions import InvalidAppIdException
+import psycopg2
 # from datetime import datetime
 app = Flask(__name__)
 app.config.from_object(__name__) # load config from this file , flaskr.py
@@ -29,28 +30,31 @@ app.config.from_envvar('FLASKR_SETTINGS', silent=True)
 
 def connect_db():
     """Connects to the specific database."""
-    rv = sqlite3.connect(app.config['DATABASE'])
-    rv.row_factory = sqlite3.Row
-    return rv
+    conn = psycopg2.connect("dbname=weather user=postgres password=dbpass port=5432 host=127.0.0.1")
+    return conn
 def get_db():
     """Opens a new database connection if there is none yet for the
     current application context.
     """
-    if not hasattr(g, 'sqlite_db'):
-        g.sqlite_db = connect_db()
-    return g.sqlite_db
+    if not hasattr(g, 'pg_db'):
+        g.pg_db = connect_db()
+    return g.pg_db
 # print(get_db)
 @app.teardown_appcontext
 def close_db(error):
     """Closes the database again at the end of the request."""
-    if hasattr(g, 'sqlite_db'):
-        g.sqlite_db.close()
+    if hasattr(g, 'pg_db'):
+        g.pg_db.close()
 
 def init_db():
     db = get_db()
+    cur = db.cursor()
     with app.open_resource('schema.sql', mode='r') as f:
-        db.cursor().executescript(f.read())
+        for sql in f.read().split(';'):
+            if sql.strip():
+                cur.execute(sql.strip())
     db.commit()
+
 
 @app.cli.command('initdb')
 def initdb_command():
@@ -62,12 +66,12 @@ def encode_password(password):
 
 def create_user(username, password):
     raw_password = encode_password(password)
-    conn = sqlite3.connect("weather.db")
+    conn = get_db()
     with conn:
         cur = conn.cursor()
-        sql_create = """INSERT INTO users (username, password) values("{}", "{}")
-                     """.format(username, raw_password)
-        cur.execute(sql_create)
+        cur.execute("""INSERT INTO users (username, password) values(%s, %s);
+                     """,(username, raw_password))
+    conn.commit()
 
 @app.cli.command('initadmin')
 def initadmin_command():
@@ -75,30 +79,31 @@ def initadmin_command():
     create_user("admin", "123456")
     print('Initialized the admin.')
 def query_user(username):
-    conn = sqlite3.connect("weather.db")
+    conn = get_db()
     with conn:
         cur = conn.cursor()
         sql_query = """SELECT * FROM users where username='{}' """.format(username)
-        user = cur.execute(sql_query).fetchone()
+        cur.execute(sql_query)
+        user = cur.fetchone()
         return user
     print(user)
 @app.cli.command('queryadmin')
 def queryadmin_command():
     """query_admin."""
-    print(dict(query_user('admin')))
+    print(query_user('admin'))
 def query_history(user_id):
-    conn = sqlite3.connect("weather.db")
+    conn = get_db()
     with conn:
         cur = conn.cursor()
-        sql_query = """SELECT result from history where user_id='{}'""".format(user_id)
+        sql_query = """SELECT result from "history" where user_id='{}'""".format(user_id)
         cur.execute(sql_query)
         history = cur.fetchall()
         return history
 def isExisted_history(city):
-    conn = sqlite3.connect("weather.db")
+    conn = get_db()
     with conn:
         cur = conn.cursor()
-        sql_query = """SELECT result from history where city='{}'""".format(city)
+        sql_query = """SELECT result from "history" where city='{}'""".format(city)
         cur.execute(sql_query)
         history = cur.fetchall()
         if len(history) == 0:
@@ -106,13 +111,49 @@ def isExisted_history(city):
         else:
             return True
 def insert_history(user_id, city, result, query_time):
-    conn = sqlite3.connect("weather.db")
+    conn = get_db()
     with conn:
         cur = conn.cursor()
-        sql_query = """INSERT INTO history (user_id, city, result, query_time)
+        sql_query = """INSERT INTO "history" (user_id, city, result, query_time)
         values ('{}','{}','{}','{}')""".format(user_id, city, result, query_time)
         cur.execute(sql_query)
+    conn.commit()
 # add entry
+def get_city_weather(location):
+    conn = get_db()
+    with conn:
+        cur = conn.cursor()
+        sql_query = """SELECT day,city,weather,temp from weather where city='{}'""".format(location)
+        cur.execute(sql_query)
+        data = cur.fetchone()
+    weather_str = f"""{data[0]},{data[1]}天气:{data[2]},气温:{data[3]}"""
+    return weather_str
+
+def update_weather(location, weather):
+    conn = get_db()
+    with conn:
+        cur = conn.cursor()
+        sql_query = """UPDATE weather SET weather='{}' where city='{}'""".format(weather, location)
+        cur.execute(sql_query)
+        # conn.commit()
+        sql_query2 = """SELECT * from weather where city='{}'""".format(location)
+        cur.execute(sql_query2)
+        update_data = cur.fetchall()
+    return update_data
+
+def create_table():
+    conn = get_db()
+    with conn:
+        cur = conn.cursor()
+        sql_query = """DROP TABLE if exists weather"""
+        cur.execute(sql_query)
+        sql_query2 = """CREATE TABLE "weather" (
+        day varchar(64),
+        city varchar(64),
+        weather varchar(64),
+        temp varchar(64))"""
+        cur.execute(sql_query2)
+    conn.commit()
 @app.route('/register/', methods=['GET', 'POST'])
 def user_register():
     context = {}
@@ -222,52 +263,52 @@ def query():
     else:
         error = '请输入正确的城市名'
     return render_template('index.html', error=error)
-    
-@app.route('/wechat', methods=['GET', 'POST'])
-def wechat():
-    signature = request.args.get('signature', '')
-    timestamp = request.args.get('timestamp', '')
-    nonce = request.args.get('nonce', '')
-    echo_str = request.args.get('echostr', '')
-    encrypt_type = request.args.get('encrypt_type', '')
-    msg_signature = request.args.get('msg_signature', '')
 
-    print('signature:', signature)
-    print('timestamp: ', timestamp)
-    print('nonce:', nonce)
-    print('echo_str:', echo_str)
-    print('encrypt_type:', encrypt_type)
-    print('msg_signature:', msg_signature)
+# @app.route('/wechat', methods=['GET', 'POST'])
+# def wechat():
+#     signature = request.args.get('signature', '')
+#     timestamp = request.args.get('timestamp', '')
+#     nonce = request.args.get('nonce', '')
+#     echo_str = request.args.get('echostr', '')
+#     encrypt_type = request.args.get('encrypt_type', '')
+#     msg_signature = request.args.get('msg_signature', '')
 
-    try:
-        check_signature(TOKEN, signature, timestamp, nonce)
-    except InvalidSignatureException:
-        abort(403)
-    if request.method == 'GET':
-        return echo_str
-    else:
-        print('Raw message: \n%s' % request.data)
-        crypto = WeChatCrypto(TOKEN, EncodingAESKey, AppId)
-        try:
-            msg = crypto.decrypt_message(
-                request.data,
-                msg_signature,
-                timestamp,
-                nonce
-            )
-            print('Descypted message: \n%s' % msg)
-        except (InvalidSignatureException, InvalidAppIdException):
-            abort(403)
-        msg = parse_message(msg)
-        if msg.type == 'text':
-            reply = create_reply(msg.content, msg)
-        else:
-            reply = create_reply('Sorry, can not handle this for now', msg)
-        return crypto.encrypt_message(
-            reply.render(),
-            nonce,
-            timestamp
-        )
+#     print('signature:', signature)
+#     print('timestamp: ', timestamp)
+#     print('nonce:', nonce)
+#     print('echo_str:', echo_str)
+#     print('encrypt_type:', encrypt_type)
+#     print('msg_signature:', msg_signature)
+
+#     try:
+#         check_signature(TOKEN, signature, timestamp, nonce)
+#     except InvalidSignatureException:
+#         abort(403)
+#     if request.method == 'GET':
+#         return echo_str
+#     else:
+#         print('Raw message: \n%s' % request.data)
+#         crypto = WeChatCrypto(TOKEN, EncodingAESKey, AppId)
+#         try:
+#             msg = crypto.decrypt_message(
+#                 request.data,
+#                 msg_signature,
+#                 timestamp,
+#                 nonce
+#             )
+#             print('Descypted message: \n%s' % msg)
+#         except (InvalidSignatureException, InvalidAppIdException):
+#             abort(403)
+#         msg = parse_message(msg)
+#         if msg.type == 'text':
+#             reply = create_reply(msg.content, msg)
+#         else:
+#             reply = create_reply('Sorry, can not handle this for now', msg)
+#         return crypto.encrypt_message(
+#             reply.render(),
+#             nonce,
+#             timestamp
+#         )
 
 if __name__ == '__main__':
     app.run(debug=True)
