@@ -30,7 +30,7 @@ app.config.from_envvar('FLASKR_SETTINGS', silent=True)
 
 def connect_db():
     """Connects to the specific database."""
-    conn = psycopg2.connect("dbname=weather user=postgres password=dbpass port=5432 host=127.0.0.1")
+    conn = psycopg2.connect("dbname=weather user=postgres password=swan port=5432 host=127.0.0.1")
     return conn
 def get_db():
     """Opens a new database connection if there is none yet for the
