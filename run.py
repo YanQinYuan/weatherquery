@@ -2,7 +2,7 @@
 from flask import Flask,url_for, render_template, request, redirect
 from weatherquery import get_weather
 # from database import get_city_weather, insert_data, update_weather,get_history, isExisted, add_user,register_check, create_table
-from wtforms import Form, TextField,PasswordField,validators
+# from wtforms import Form, TextField,PasswordField,validators
 import os
 import sqlite3
 from flask import session, g, abort, flash, escape
