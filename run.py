@@ -3,8 +3,8 @@ from flask import Flask,url_for, render_template, request, redirect
 from weatherquery import get_weather
 # from database import get_city_weather, insert_data, update_weather,get_history, isExisted, add_user,register_check, create_table
 # from wtforms import Form, TextField,PasswordField,validators
+from urllib import parse
 import os
-import sqlite3
 from flask import session, g, abort, flash, escape
 import hashlib
 import datetime
@@ -19,6 +19,7 @@ app = Flask(__name__)
 app.config.from_object(__name__) # load config from this file , flaskr.py
 # Load default config and override config from an environment variable
 
+
 TOKEN = os.getenv('WECHAT_TOKEN', '123456')
 EncodingAESKey = os.getenv('WECHAT_ENCODING_AES_KEY', '')
 AppId = os.getenv('WECHAT_APP_ID', '')
@@ -30,8 +31,20 @@ app.config.from_envvar('FLASKR_SETTINGS', silent=True)
 
 def connect_db():
     """Connects to the specific database."""
-    conn = psycopg2.connect("dbname=weather user=postgres password=swan port=5432 host=127.0.0.1")
+    parse.uses_netloc.append("postgres")
+    url = parse.urlparse(os.environ.get("DATABASE_URL"))
+    if url:
+        conn = psycopg2.connect(
+            database=url.path[1:],
+            user=url.username,
+            password=url.password,
+            host=url.hostname,
+            port=url.port
+        )
+    else:
+        conn = psycopg2.connect("dbname=weather user=postgres password=swan port=5432 host=127.0.0.1")
     return conn
+
 def get_db():
     """Opens a new database connection if there is none yet for the
     current application context.
