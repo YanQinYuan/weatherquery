@@ -29,6 +29,9 @@
 记录用户查询时间
 按查询时间倒序展示
 ####
-- 添加register.html页面
-- 添加表单用于记录user输入，用post传输数据
--
+- 添加 register.html 页面 ☑️
+- 添加表单用于记录 user 输入，用 post 传输数据 ☑️
+- 用 flask-sqlalchemy 
+- 用 bootstrap 改写前端
+- 用 blueprint 改写后段
+- 用 docker 部署
