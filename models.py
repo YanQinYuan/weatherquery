@@ -20,18 +20,13 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(200), unique=False, nullable=True)
     password = db.Column(db.String(200), unique=False, nullable=True)
-    def __repr__(self):
-        return self.username, self.password
-    
-    def save(self):
-        db.session.add(self)
-        db.session.commit()
+    history = db.relationship('History', backref='user', lazy='dynamic')
+
 
 class History(db.Model):
-    user_id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, db.ForeignKey('user.id'),nullable=False)
     city = db.Column(db.String(80), nullable=False)
     result = db.Column(db.Text, nullable=False)
     day = db.Column(db.DateTime, nullable=False,
         default=datetime.utcnow)
-    def __repr__(self):
-        return self.user_id, self.city, self.result, self.day
+

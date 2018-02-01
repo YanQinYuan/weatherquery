@@ -10,7 +10,7 @@
 # 用户手动更新数据库y
 # 数据库定时更新y
 
-import psycopg2 as psy
+import sqlite3 as ite
 def create_users():
 	conn = ite.connect('weather.db')
 	with conn:

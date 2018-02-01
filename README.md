@@ -31,7 +31,7 @@
 ####
 - 添加 register.html 页面 ☑️
 - 添加表单用于记录 user 输入，用 post 传输数据 ☑️
-- 用 flask-sqlalchemy 
-- 用 bootstrap 改写前端
+- 用 flask-sqlalchemy ☑️
+- 用 bootstrap 改写前端 
 - 用 blueprint 改写后段
 - 用 docker 部署

@@ -1,25 +1,13 @@
 # -*- coding: utf-8 -*-
 from flask import Flask,url_for, render_template, request, redirect
 from weatherquery import get_weather
-# from database import get_city_weather, insert_data, update_weather,get_history, isExisted, add_user,register_check, create_table
-# from wtforms import Form, TextField,PasswordField,validators
 from urllib import parse
 import os
 from flask import session, g, abort, flash, escape
 import hashlib
 import datetime
-from db_sqlchemy import User, History
-# from flask_sqlalchemy import SQLAlchemy
-# from wechatpy.crypto import WeChatCrypto
-# from wechatpy import parse_message, create_reply
-# from wechatpy.utils import check_signature
-# from wechatpy.exceptions import InvalidSignatureException
-# from wechatpy.exceptions import InvalidAppIdException
-import psycopg2
-# from datetime import datetime
-app = Flask(__name__)
-app.config.from_object(__name__) # load config from this file , flaskr.py
-# Load default config and override config from an environment variable
+from models import User, History
+
 
 app.config.update(dict(
     DATABASE=os.path.join(app.root_path, 'weather128.db'),
@@ -62,7 +50,7 @@ def user_register():
         if error is None:
             # create_user(username, password)
             user = User(username=username, password=password)
-            db.session.add(admin)
+            db.session.add(user)
             db.session.cmmit()
             return redirect(url_for('login'))
         else:
@@ -82,7 +70,7 @@ def login():
             error = '请输入用户名'
         else:
             # user = get_user()
-            user = User(username=username)
+            user = User.query.filter_by(username=username).first()
             if not user:
                 error = '用户不存在'
             else:
@@ -91,7 +79,7 @@ def login():
                     error = '用户名或密码错误'
                 else:
                     session['login'] = True
-                    session['user'] = user
+                    session['user'] = user.id
                     return redirect(url_for('query'))
         context.update({
         'error':error
@@ -111,20 +99,19 @@ def logout():
 @app.route('/', methods=['GET','POST'])
 def query():
     city_query = request.args.get('city')
-    user = session.get('user')
+    user_id = session.get('user')
     query_time = datetime.datetime.now()
     if request.args.get('query')=="Query" and len(city_query) != 0:
-        create_table() # reset history 
+        # create_table() # reset history 
         try:
-            weather_str = get_city_weather(city_query)
+            weather_str = History.query.filter_by(user_id=user_id).all()
             print(weather_str + "database")
-            return render_template('index.html', weather_str=weather_str)
-        except TypeError:
+            return render_template('index.html', weather_str=weather_str.result)
+        except KeyError:
             try:
                 day,location,weather,low,weather_str = get_weather(city_query)
-                user_id = user[0]
-                username = user[1]
-                insert_history(user_id, city_query, weather_str, query_time)
+                his = History(user_id=user_id, city=location, result=weather_str, day=query_time)
+                his.save()
                 return render_template('index.html', weather_str=weather_str)
             except TypeError:
                 try:
@@ -135,9 +122,8 @@ def query():
                     return render_template('index.html', error=error)
     elif request.args.get('history')=="History":
         try:
-            user_id = user[0]
-            username = user[1]
-            history = query_history(user_id)
+            # history = query_history(user_id)
+            history = History.query.filter_by(user_id=user_id).all()
             return render_template('index.html', history=history)
         except TypeError:
             error = '请先登录'
